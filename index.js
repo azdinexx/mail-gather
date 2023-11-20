@@ -1,72 +1,107 @@
-// ---------------------------
-//      MADE IN CASABLANCA
-// ---------------------------
+import child_process , { spawn }  from 'child_process';
+ import { getLastHandledDomain } from './utils.js';
+ import { TxtTOArray } from './utils.js';
+ import { createObjectCsvWriter } from 'csv-writer';
+ 
+// ------- Global Variables :----------------- ###
 
-import { createObjectCsvWriter } from 'csv-writer';
-import { createObjectFromDomainInfo } from './funcs.js';
-import { TxtTOArray } from './funcs.js';
-import { csvHeader } from './constants.js';
-import whois from 'whois';
-
-// ------------------------
-//      GLOBAL VARIABLES
-// ------------------------
-
-let tld = {
-  ma: 'whois.iam.net.ma',
-  com: 'whois.verisign-grs.com',
-  ca: 'whois.ca.fury.ca',
-};
-const CURRENT = 'ca';
-let txt_file = `./data/input/ca/1.txt`;
-let csv_output_file = `./data/output/${CURRENT}.csv`;
-let SERVER = tld[CURRENT];
-// let ips = TxtTOArray('./data/ips.txt');
-// let ports = TxtTOArray('./data/ports.txt');
-// let random_index = Math.floor(Math.random() * ips.length);
-// let proxy = `${ips[random_index]}:${ports[random_index]}`;
-
-// -------------------------------------------------------
-//      READING INPUT FILE AND CREATING OUTPUT FILE
-// -------------------------------------------------------
-
+const CONDITIONS = {
+  ADMIN_EMAIL : 'Admin Email: ',
+  ADMIN_NAME : 'Admin Name: ',
+  ADMIN_PHONE : 'Admin Phone: '
+}
+let input_file = './data/input/ca.txt';
+const csvHeader = [
+  { id: 'domain', title: 'Domain' },
+  { id: 'email', title: 'Name' },
+  { id: 'name', title: 'Email' },
+  { id: 'phone', title: 'Phone' },
+];
 const csvWriter = createObjectCsvWriter({
-  path: csv_output_file, // Output file name
+  path: 'data.csv', // Output file name
   header: csvHeader,
-});
-const input = TxtTOArray(txt_file);
-
-// ------------------------
-//      SCRIPT CODE
-// ------------------------
-//const input_uniq = [...new Set(input)];
-input.forEach((domain) => {
-  whois.lookup(domain, { server: SERVER }, (err, data) => {
-    if (err) {
-      console.error(err.message);
-      return;
-    } else {
-      const obj = createObjectFromDomainInfo(data);
-      if (obj.admin_name === 'REDACTED FOR PRIVACY' || obj.admin_name === '')
-        return;
-      else {
-        const csvFile = [];
-
-        csvFile.push(obj);
-        // Write the data to the CSV file.
-        csvWriter
-          .writeRecords(csvFile)
-          .then(() => console.log('CSV file written successfully'))
-          .catch((error) => console.error('Error writing CSV file:', error));
-      }
-    }
-  });
+  append: true,
 });
 
-// ------------------------
-//      FUNCTIONS
-// ------------------------
+// ------------------------------------------- ###
 
-console.log('-----------------------------');
-console.log('       start of script');
-console.log('-----------------------------');
+const domains = TxtTOArray(input_file)
+processDomains(domains)
+
+// -------------- Functions :----------------- ###
+
+// iterate over domains array
+// status: #under_constructin
+async function processDomains(domains) {
+  const lastHandledDomain = getLastHandledDomain('data.csv');
+  const temp = domains;
+  if (lastHandledDomain !== 0) {
+    const index = temp.indexOf(lastHandledDomain);
+    console.log(
+      'continuing from index :  ' + index + ' of domain : ' + lastHandledDomain
+    );
+    domains.splice(0, index);
+  }
+
+  for (const domain of temp) {
+    await executeChildProcess(domain);
+  }
+}
+
+// scrape domain info and write to csv (main logic of this repo)
+// status: #completed
+function executeChildProcess(domain) {
+    return new Promise((resolve, reject) => {
+      const child = spawn('whois', [domain]);
+      console.log('-----------------------------------------');
+  
+      child.stdout.on('data', (stdout) => {
+        const data = stdout.toString().split('\n')
+        const info ={
+          domain : domain,
+          name : '',
+          email : '',
+          phone : '',
+        }
+        if (data.length> 0) {
+          data.map((line)=>{
+            if(line.startsWith(CONDITIONS.ADMIN_EMAIL)) info.email = line.split(': ').pop()
+            if(line.startsWith(CONDITIONS.ADMIN_NAME)) info.name = line.split(': ').pop()
+            if(line.startsWith(CONDITIONS.ADMIN_PHONE)) info.phone = line.split(': ').pop()
+          })
+        }
+        if (info.name === "REDACTED FOR PRIVACY" || info.name === '' || info.email.length>100 || info.name ===  'REDACTED FOR PRIVACY' ) {
+          console.log('REDACTED FOR PRIVACY')
+        }else{
+          const csvFile = [];
+
+          csvFile.push(info);
+          // Write the data to the CSV file.
+          csvWriter
+            .writeRecords(csvFile)
+            .then(() => console.log('CSV file written successfully'))
+            .catch((error) => console.error('Error writing CSV file:', error));
+        }
+        
+    });
+      child.on('exit', (code) => {
+        if (code === 0) {
+          console.log('-----------------------------------------');
+          resolve();
+        } else {
+          reject(new Error('Error at ' + domain));
+
+        }
+      });
+  
+      child.on('error', (err) => {
+        console.error(
+          `Error executing child process for ${domain}: ${err.message}`
+        );
+        reject(err);
+      });
+    });
+  }
+ 
+// ------------------------------------------- ###
+
