@@ -13,8 +13,8 @@ const CONDITIONS = {
 let input_file = './data/input/ca.txt';
 const csvHeader = [
   { id: 'domain', title: 'Domain' },
-  { id: 'email', title: 'Name' },
   { id: 'name', title: 'Email' },
+  { id: 'email', title: 'Name' },
   { id: 'phone', title: 'Phone' },
 ];
 const csvWriter = createObjectCsvWriter({
@@ -84,15 +84,15 @@ function executeChildProcess(domain) {
         }
         
     });
-      child.on('exit', (code) => {
-        if (code === 0) {
-          console.log('-----------------------------------------');
-          resolve();
-        } else {
-          reject(new Error('Error at ' + domain));
-
-        }
-      });
+    child.on('exit', (code) => {
+      if (code === 0) {
+        console.log(`------------ ${domain} completed successfully`);
+        resolve();
+      } else {
+        console.error(`##Child process for ${domain} exited with code ${code}`);
+        reject(new Error(`###Child process for ${domain} failed`));
+      }
+    });
   
       child.on('error', (err) => {
         console.error(
