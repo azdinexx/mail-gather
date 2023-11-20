@@ -53,7 +53,7 @@ async function processDomains(domains) {
 function executeChildProcess(domain) {
     return new Promise((resolve, reject) => {
       const child = spawn('whois', [domain]);
-      console.log('-----------------------------------------');
+      console.log('\n-----------------------------------------\n');
   
       child.stdout.on('data', (stdout) => {
         const data = stdout.toString().split('\n')
@@ -71,7 +71,7 @@ function executeChildProcess(domain) {
           })
         }
         if (info.name === "REDACTED FOR PRIVACY" || info.name === '' || info.email.length>100 || info.name ===  'REDACTED FOR PRIVACY' ) {
-          console.log('REDACTED FOR PRIVACY')
+          console.log('REDACTED FOR PRIVACY\n')
         }else{
           const csvFile = [];
 
@@ -79,14 +79,14 @@ function executeChildProcess(domain) {
           // Write the data to the CSV file.
           csvWriter
             .writeRecords(csvFile)
-            .then(() => console.log('CSV file written successfully'))
+            .then(() => console.log('CSV file written successfully\n'))
             .catch((error) => console.error('Error writing CSV file:', error));
         }
         
     });
     child.on('exit', (code) => {
       if (code === 0) {
-        console.log(`------------ ${domain} completed successfully`);
+        console.log(`------------ ${domain} completed successfully\n\n`);
         resolve();
       } else {
         console.error(`##Child process for ${domain} exited with code ${code}`);
